@@ -76,10 +76,23 @@ fn generate_rust(pair: Pair<Rule>) -> String {
         }
         Rule::param => {
             let mut inner = pair.into_inner();
-            let id = generate_rust(inner.next().unwrap());
-            let _colon = inner.next().unwrap();
-            let ty = generate_rust(inner.next().unwrap());
-            format!("{}: {}", id, ty)
+            let id_str = pair.as_str(); // debug: full param string
+            if id_str.is_empty() {
+                return String::new();
+            }
+            let first = inner.next();
+            if first.is_none() {
+                return id_str.to_string();
+            }
+            let id = generate_rust(first.unwrap());
+            // Skip colon literal
+            let _colon = inner.next();
+            if let Some(ty_pair) = inner.next() {
+                let ty = generate_rust(ty_pair);
+                format!("{}: {}", id, ty)
+            } else {
+                id
+            }
         }
         Rule::ret_sig => {
             let mut inner = pair.into_inner();

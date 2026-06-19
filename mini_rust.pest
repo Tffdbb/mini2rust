@@ -17,7 +17,9 @@ func_def = { "fn" ~ ident ~ param_list ~ ret_sig ~ block }
 param_list = { "(" ~ inner_params ~ ")" }
 inner_params = { param ~ ("," ~ param)* }
 
-param = { ident ~ ":" ~ ty_ident }
+param = { name ~ ":" ~ ty }
+name = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+ty = @{ name ~ ("::" ~ name)* }
 ret_sig = { ("->" ~ ty_ident)? }
 
 stmt = { let_stmt | if_stmt | for_stmt | while_stmt | ret_stmt | print_stmt | call_expr_stmt }
