@@ -1,4 +1,4 @@
-use pest::iterators::Pair;
+use pest::{iterators::Pair, Parser};
 use parser::{MiniParser, Rule};
 use std::fs;
 
@@ -168,12 +168,6 @@ fn generate_rust(pair: Pair<Rule>) -> String {
             let cond = generate_rust(inner.next().unwrap());
             let block = generate_rust(inner.next().unwrap());
             format!("while {} {}\n", cond, block)
-        }
-
-        // 裸表达式语句
-        Rule::expr_stmt => {
-            let expr = generate_rust(pair.into_inner().next().unwrap());
-            format!("{};\n", expr)
         }
 
         // 表达式（优先级层级，全部通过兜底展开）
