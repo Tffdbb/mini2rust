@@ -20,7 +20,7 @@ inner_params = { param ~ ("," ~ param)* }
 param = { ident ~ ":" ~ ty_ident }
 ret_sig = { ("->" ~ ty_ident)? }
 
-stmt = { let_stmt | if_stmt | for_stmt | while_stmt | expr_stmt | ret_stmt | print_stmt }
+stmt = { let_stmt | if_stmt | for_stmt | while_stmt | ret_stmt | print_stmt | call_expr_stmt }
 
 let_stmt = { "mut"? ~ ident ~ (":" ~ ty_ident)? ~ "=" ~ expr }
 ret_stmt = { "ret" ~ expr }
@@ -31,6 +31,8 @@ if_stmt = { "if" ~ expr ~ block ~ ("else" ~ block)? }
 for_stmt = { "for" ~ ident ~ "in" ~ expr ~ block }
 while_stmt = { "while" ~ expr ~ block }
 block = { "{" ~ stmt* ~ "}" }
+
+call_expr_stmt = { call_expr }
 
 expr = { add_expr }
 add_expr = { mul_expr ~ (add_op ~ mul_expr)* }

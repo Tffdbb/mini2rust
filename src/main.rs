@@ -203,6 +203,12 @@ fn generate_rust(pair: Pair<Rule>) -> String {
         Rule::ident => pair.as_str().to_string(),
         Rule::number => pair.as_str().to_string(),
         Rule::string => pair.as_str().to_string(),
+        // 裸函数调用作为语句
+        Rule::call_expr_stmt => {
+            let inner = pair.into_inner().next().unwrap();
+            format!("{};\n", generate_rust(inner))
+        }
+
         Rule::call_expr => {
             let mut inner = pair.into_inner();
             let fn_name = generate_rust(inner.next().unwrap());
@@ -239,7 +245,7 @@ fn generate_rust(pair: Pair<Rule>) -> String {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let src = fs::read_to_string("test.mini")?;
-    let parsed = pest::Parser::<Rule>::parse(&MiniParser, Rule::file, &src)?;
+    let parsed = MiniParser::parse(Rule::file, &src)?;
     let rust_code = generate_rust(parsed.next().unwrap());
 
     fs::write("output.rs", &rust_code)?;
