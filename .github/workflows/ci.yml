@@ -1,0 +1,15 @@
+name: mini2rust
+on: [push, workflow_dispatch]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo run
+        working-directory: .
+      - run: rustc output.rs -o output 2>&1
+        working-directory: .
+      - run: ./output 2>&1 || true
+        working-directory: .

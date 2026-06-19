@@ -1,0 +1,21 @@
+fn add(x: i32, y: i32) -> i32 {
+    ret x + y
+}
+
+fn greet(name: String) {
+    print(name)
+}
+
+mut num = 100
+if num > 10 {
+    print(num)
+}
+
+for i in vec![1, 2, 3] {
+    print(i)
+}
+
+struct User {
+    id: u64
+    name: String
+}
