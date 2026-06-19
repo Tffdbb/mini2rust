@@ -1,4 +1,4 @@
-use pest::{iterators::Pair, Parser};
+use pest::iterators::Pair;
 use parser::{MiniParser, Rule};
 use std::fs;
 
@@ -82,11 +82,12 @@ fn generate_rust(pair: Pair<Rule>) -> String {
             format!("{}: {}", id, ty)
         }
         Rule::ret_sig => {
-            let s = pair.as_str().trim();
-            if s.starts_with("->") {
-                s[2..].trim().to_string()
+            let mut inner = pair.into_inner();
+            if let Some(_arrow) = inner.next() {
+                let ty = generate_rust(inner.next().unwrap());
+                ty
             } else {
-                s.to_string()
+                String::new()
             }
         }
 
@@ -103,31 +104,22 @@ fn generate_rust(pair: Pair<Rule>) -> String {
         Rule::let_stmt => {
             let mut inner = pair.into_inner();
             let mut is_mut = false;
-            let first = inner.next().unwrap();
-            let ident_node = if first.as_str() == "mut" {
-                is_mut = true;
-                inner.next().unwrap()
-            } else {
-                first
-            };
-            let var_name = generate_rust(ident_node);
+            let mut var_name = String::new();
             let mut type_anno = String::new();
+            let mut expr_val = String::new();
 
-            // 处理 :ty 和 =
-            let expr_val = if let Some(maybe_colon) = inner.peek() {
-                if maybe_colon.as_str() == ":" {
-                    inner.next(); // skip :
-                    let ty = generate_rust(inner.next().unwrap());
-                    type_anno = format!(": {}", ty);
-                    inner.next(); // skip =
-                    generate_rust(inner.next().unwrap())
-                } else {
-                    inner.next(); // skip =
-                    generate_rust(inner.next().unwrap())
+            while let Some(n) = inner.next() {
+                let s = n.as_str();
+                if s == "mut" && var_name.is_empty() {
+                    is_mut = true;
+                } else if var_name.is_empty() {
+                    var_name = generate_rust(n);
+                } else if s == ":" {
+                    type_anno = format!(": {}", generate_rust(inner.next().unwrap()));
+                } else if s == "=" {
+                    expr_val = generate_rust(inner.next().unwrap());
                 }
-            } else {
-                String::new()
-            };
+            }
 
             let mut_kw = if is_mut { "mut " } else { "" };
             format!("let {}{}{} = {};\n", mut_kw, var_name, type_anno, expr_val)
@@ -141,8 +133,12 @@ fn generate_rust(pair: Pair<Rule>) -> String {
 
         // print(xxx) → println!("{}", xxx)
         Rule::print_stmt => {
-            let expr = generate_rust(pair.into_inner().next().unwrap());
-            format!("println!(\"{}\", {});\n", expr, expr)
+            let mut inner = pair.into_inner();
+            let _print = inner.next();
+            let _lparen = inner.next();
+            let expr = generate_rust(inner.next().unwrap());
+            let _rparen = inner.next();
+            format!("println!(\"{{}}\", {});\n", expr)
         }
 
         // if / else
@@ -210,14 +206,21 @@ fn generate_rust(pair: Pair<Rule>) -> String {
         Rule::call_expr => {
             let mut inner = pair.into_inner();
             let fn_name = generate_rust(inner.next().unwrap());
-            let mut args = String::new();
+            let _lparen = inner.next();
+            let args = inner.next().map(|a| generate_rust(a)).unwrap_or_default();
+            let _rparen = inner.next();
+            format!("{}({})", fn_name, args)
+        }
+        Rule::call_args => {
+            let mut buf = String::new();
+            let mut inner = pair.into_inner();
             while let Some(arg) = inner.next() {
-                args.push_str(&generate_rust(arg));
+                buf.push_str(&generate_rust(arg));
                 if inner.peek().is_some() {
-                    args.push_str(", ");
+                    buf.push_str(", ");
                 }
             }
-            format!("{}({})", fn_name, args)
+            buf
         }
 
         // 注释和空白直接丢弃
@@ -236,7 +239,7 @@ fn generate_rust(pair: Pair<Rule>) -> String {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let src = fs::read_to_string("test.mini")?;
-    let parsed = MiniParser::parse(Rule::file, &src)?;
+    let parsed = pest::Parser::<Rule>::parse(&MiniParser, Rule::file, &src)?;
     let rust_code = generate_rust(parsed.next().unwrap());
 
     fs::write("output.rs", &rust_code)?;
