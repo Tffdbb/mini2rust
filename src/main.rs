@@ -75,11 +75,11 @@ fn generate_rust(pair: Pair<Rule>) -> String {
             format!("({})", buf)
         }
         Rule::param => {
-            let mut inner = pair.into_inner();
             let id_str = pair.as_str(); // debug: full param string
             if id_str.is_empty() {
                 return String::new();
             }
+            let mut inner = pair.into_inner();
             let first = inner.next();
             if first.is_none() {
                 return id_str.to_string();
