@@ -2,35 +2,43 @@ WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 COMMENT = _{ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE? }
 NEWLINE = _{ "\n" | "\r\n" }
 
-ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
-ty_ident   = @{ ident ~ ("::" ~ ident)* }
-number     = @{ ASCII_DIGIT+ }
-string     = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+ty_ident = @{ ident ~ ("::" ~ ident)* }
+number = @{ ASCII_DIGIT+ }
+string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 
-file      = SOI ~ top_stmt* ~ EOI
-top_stmt  = { func_def | struct_def | stmt }
+file = { SOI ~ top_stmt* ~ EOI }
+top_stmt = _{ func_def | struct_def | stmt }
 
-struct_def   = { "struct" ~ ident ~ "{" ~ struct_field* ~ "}" }
-struct_field = { ident ~ ":" ~ ty_ident ~ NEWLINE? }
+struct_def = { "struct" ~ ident ~ "{" ~ struct_field* ~ "}" }
+struct_field = { ident ~ ":" ~ ty_ident }
 
-func_def  = { "fn" ~ ident ~ param_list ~ ret_sig ~ block }
+func_def = { "fn" ~ ident ~ param_list ~ ret_sig ~ block }
 param_list = { "(" ~ (param ("," ~ param)*)? ~ ")" }
-param     = { ident ~ ":" ~ ty_ident }
-ret_sig   = { ("->" ~ ty_ident)? }
+param = { ident ~ ":" ~ ty_ident }
+ret_sig = { ("->" ~ ty_ident)? }
 
-stmt    = { let_stmt | if_stmt | for_stmt | while_stmt | expr_stmt | ret_stmt | print_stmt }
+stmt = { let_stmt | if_stmt | for_stmt | while_stmt | expr_stmt | ret_stmt | print_stmt }
+
 let_stmt = { "mut"? ~ ident ~ (":" ~ ty_ident)? ~ "=" ~ expr }
 ret_stmt = { "ret" ~ expr }
 print_stmt = { "print" ~ "(" ~ expr ~ ")" }
 
-if_stmt   = { "if" ~ expr ~ block ~ ("else" ~ block)? }
-for_stmt  = { "for" ~ ident ~ "in" ~ expr ~ block }
+if_stmt = { "if" ~ expr ~ block ~ ("else" ~ block)? }
+for_stmt = { "for" ~ ident ~ "in" ~ expr ~ block }
 while_stmt = { "while" ~ expr ~ block }
-block     = { "{" ~ stmt* ~ "}" }
+block = { "{" ~ stmt* ~ "}" }
 
-expr     = { bin_expr | call_expr | path_expr | number | string | ident }
-bin_expr = { ident ~ op ~ expr }
-op       = { "+" | "-" | "*" | "/" | ">" | "<" | "==" }
+// 左递归避免：用两层表达优先级
+// 顶层允许 op 链
+expr = { add_expr }
+add_expr = { mul_expr ~ (add_op ~ mul_expr)* }
+mul_expr = { cmp_expr ~ (mul_op ~ cmp_expr)* }
+cmp_expr = { primary ~ (cmp_op ~ primary)* }
+primary = { number | string | call_expr | ident | ty_ident }
 
-path_expr  = { ty_ident }
-call_expr  = { ident ~ "(" ~ (expr ("," ~ expr)*)? ~ ")" }
+add_op = { "+" | "-" }
+mul_op = { "*" | "/" }
+cmp_op = { ">" | "<" | "==" }
+
+call_expr = { ident ~ "(" ~ (expr ("," ~ expr)*)? ~ ")" }

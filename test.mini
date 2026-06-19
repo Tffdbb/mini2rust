@@ -11,10 +11,6 @@ if num > 10 {
     print(num)
 }
 
-for i in vec![1, 2, 3] {
-    print(i)
-}
-
 struct User {
     id: u64
     name: String

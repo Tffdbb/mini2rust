@@ -180,23 +180,30 @@ fn generate_rust(pair: Pair<Rule>) -> String {
             format!("{};\n", expr)
         }
 
-        // 表达式
-        Rule::expr => {
+        // 表达式（优先级层级，全部通过兜底展开）
+        Rule::expr | Rule::add_expr | Rule::mul_expr | Rule::cmp_expr => {
+            let mut inner = pair.into_inner();
+            let left = generate_rust(inner.next().unwrap());
+            let mut buf = left;
+            while let Some(op) = inner.next() {
+                buf.push_str(" ");
+                buf.push_str(&generate_rust(op));
+                if let Some(right) = inner.next() {
+                    buf.push_str(" ");
+                    buf.push_str(&generate_rust(right));
+                }
+            }
+            buf
+        }
+        Rule::add_op | Rule::mul_op | Rule::cmp_op => pair.as_str().to_string(),
+        Rule::primary => {
             let mut buf = String::new();
             for inner in pair.into_inner() {
                 buf.push_str(&generate_rust(inner));
             }
             buf
         }
-        Rule::bin_expr => {
-            let mut inner = pair.into_inner();
-            let left = generate_rust(inner.next().unwrap());
-            let op = generate_rust(inner.next().unwrap());
-            let right = generate_rust(inner.next().unwrap());
-            format!("{} {} {}", left, op, right)
-        }
-        Rule::op => pair.as_str().to_string(),
-        Rule::path_expr | Rule::ty_ident => pair.as_str().to_string(),
+        Rule::ty_ident => pair.as_str().to_string(),
         Rule::ident => pair.as_str().to_string(),
         Rule::number => pair.as_str().to_string(),
         Rule::string => pair.as_str().to_string(),
