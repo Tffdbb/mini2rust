@@ -178,30 +178,52 @@ fn generate_rust(pair: Pair<Rule>) -> String {
 
         // if / else
         Rule::if_stmt => {
-            let mut inner = pair.into_inner();
-            let _if = inner.next();
-            let cond = generate_rust(inner.next().unwrap());
-            let block = generate_rust(inner.next().unwrap());
-            let mut else_block = String::new();
-            if let Some(else_node) = inner.next() {
-                else_block = format!(" else {}", generate_rust(else_node));
+            let mut cond = String::new();
+            let mut block_parts = Vec::new();
+            let mut is_else = false;
+            for node in pair.into_inner() {
+                let s = node.as_str();
+                if s == "if" { continue; }
+                if s == "else" { is_else = true; continue; }
+                if node.as_rule() == Rule::block {
+                    block_parts.push(generate_rust(node));
+                } else if is_else {
+                    block_parts.push(format!(" else {}", generate_rust(node)));
+                } else if cond.is_empty() {
+                    cond = generate_rust(node);
+                }
             }
-            format!("if {} {}{}\n", cond, block, else_block)
+            format!("if {} {}\n", cond, block_parts.concat())
         }
         Rule::for_stmt => {
-            let mut inner = pair.into_inner();
-            let _for = inner.next();
-            let var = generate_rust(inner.next().unwrap());
-            let _in = inner.next();
-            let expr = generate_rust(inner.next().unwrap());
-            let block = generate_rust(inner.next().unwrap());
-            format!("for {} in {} {}\n", var, expr, block)
+            let mut var = String::new();
+            let mut iter_expr = String::new();
+            let mut block = String::new();
+            for node in pair.into_inner() {
+                let s = node.as_str();
+                if s == "for" || s == "in" { continue; }
+                if node.as_rule() == Rule::block {
+                    block = generate_rust(node);
+                } else if var.is_empty() {
+                    var = generate_rust(node);
+                } else {
+                    iter_expr = generate_rust(node);
+                }
+            }
+            format!("for {} in {} {}\n", var, iter_expr, block)
         }
         Rule::while_stmt => {
-            let mut inner = pair.into_inner();
-            let _while = inner.next();
-            let cond = generate_rust(inner.next().unwrap());
-            let block = generate_rust(inner.next().unwrap());
+            let mut cond = String::new();
+            let mut block = String::new();
+            for node in pair.into_inner() {
+                let s = node.as_str();
+                if s == "while" { continue; }
+                if node.as_rule() == Rule::block {
+                    block = generate_rust(node);
+                } else if cond.is_empty() {
+                    cond = generate_rust(node);
+                }
+            }
             format!("while {} {}\n", cond, block)
         }
 
