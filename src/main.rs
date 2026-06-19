@@ -96,12 +96,14 @@ fn generate_rust(pair: Pair<Rule>) -> String {
         }
         Rule::ret_sig => {
             let mut inner = pair.into_inner();
-            if let Some(_arrow) = inner.next() {
-                let ty = generate_rust(inner.next().unwrap());
-                ty
-            } else {
-                String::new()
+            let mut result = String::new();
+            for node in inner {
+                let s = node.as_str();
+                if s != "->" {
+                    result = generate_rust(node);
+                }
             }
+            result
         }
 
         // 语句块 { ... }
