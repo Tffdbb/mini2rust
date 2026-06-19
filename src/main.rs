@@ -95,7 +95,7 @@ fn generate_rust(pair: Pair<Rule>) -> String {
             }
         }
         Rule::ret_sig => {
-            let mut inner = pair.into_inner();
+            let inner = pair.into_inner();
             let mut result = String::new();
             for node in inner {
                 let s = node.as_str();
