@@ -51,17 +51,27 @@ fn generate_rust(pair: Pair<Rule>) -> String {
             let _fn_kw = inner.next().unwrap();
             let fn_name = generate_rust(inner.next().unwrap());
             let params = generate_rust(inner.next().unwrap());
-            let ret_sig_node = inner.next().unwrap();
-            let block = generate_rust(inner.next().unwrap());
-
-            let ret_raw = generate_rust(ret_sig_node);
+            
+            // Remaining nodes: ret_sig (optional) + block
+            let mut ret_raw = String::new();
+            let mut block_parts = Vec::new();
+            for node in inner {
+                if node.as_str().starts_with("->") || node.as_rule() == Rule::ret_sig {
+                    let r = generate_rust(node);
+                    if !r.is_empty() { ret_raw = r; }
+                } else {
+                    block_parts.push(generate_rust(node));
+                }
+            }
+            
             let ret_ty = if ret_raw.is_empty() {
                 "()".to_string()
             } else {
                 ret_raw
             };
-
-            format!("fn {}{} -> {} {}\n", fn_name, params, ret_ty, block)
+            
+            let block_str = block_parts.concat();
+            format!("fn {}{} -> {} {}\n", fn_name, params, ret_ty, block_str)
         }
         Rule::param_list => {
             let mut buf = String::new();
