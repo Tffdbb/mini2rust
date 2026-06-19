@@ -239,7 +239,7 @@ fn generate_rust(pair: Pair<Rule>) -> String {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let src = fs::read_to_string("test.mini")?;
-    let parsed = MiniParser::parse(Rule::file, &src)?;
+    let mut parsed = MiniParser::parse(Rule::file, &src)?;
     let rust_code = generate_rust(parsed.next().unwrap());
 
     fs::write("output.rs", &rust_code)?;
