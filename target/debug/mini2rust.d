@@ -1,0 +1,1 @@
+H:\claw1232\portable\data\.openclaw\workspace\mini2rust\target\debug\mini2rust.exe: H:\claw1232\portable\data\.openclaw\workspace\mini2rust\mini_rust.pest H:\claw1232\portable\data\.openclaw\workspace\mini2rust\src\main.rs H:\claw1232\portable\data\.openclaw\workspace\mini2rust\src\parser.rs

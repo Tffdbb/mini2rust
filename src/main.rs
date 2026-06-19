@@ -8,11 +8,21 @@ mod parser;
 fn generate_rust(pair: Pair<Rule>) -> String {
     match pair.as_rule() {
         Rule::file => {
-            let mut buf = String::new();
+            let mut funcs = String::new();
+            let mut main_stmts = String::new();
             for inner in pair.into_inner() {
-                buf.push_str(&generate_rust(inner));
+                let rule = inner.as_rule();
+                let code = generate_rust(inner);
+                if rule == Rule::func_def || rule == Rule::struct_def {
+                    funcs.push_str(&code);
+                } else if !code.trim().is_empty() {
+                    main_stmts.push_str(&code);
+                }
             }
-            buf
+            if !main_stmts.is_empty() {
+                funcs.push_str(&format!("fn main() {{\n{}}}\n", main_stmts));
+            }
+            funcs
         }
 
         Rule::top_stmt => {
@@ -24,9 +34,10 @@ fn generate_rust(pair: Pair<Rule>) -> String {
         }
 
         // struct User { id:u64 name:String }
+        // NOTE: pest drops string literals from into_inner()
+        // into_inner() yields: ident, struct_field*
         Rule::struct_def => {
             let mut inner = pair.into_inner();
-            let _struct_kw = inner.next().unwrap();
             let name = generate_rust(inner.next().unwrap());
             let mut fields = String::new();
             for field in inner {
@@ -40,7 +51,6 @@ fn generate_rust(pair: Pair<Rule>) -> String {
         Rule::struct_field => {
             let mut inner = pair.into_inner();
             let id = generate_rust(inner.next().unwrap());
-            let _colon = inner.next().unwrap();
             let ty = generate_rust(inner.next().unwrap());
             format!("    {}: {},\n", id, ty)
         }
@@ -48,15 +58,15 @@ fn generate_rust(pair: Pair<Rule>) -> String {
         // fn 函数定义
         Rule::func_def => {
             let mut inner = pair.into_inner();
-            let _fn_kw = inner.next().unwrap();
+            // NOTE: pest does NOT produce sub-nodes for string literals like "fn"
+            // So into_inner() yields: ident, param_list, ret_sig, block
             let fn_name = generate_rust(inner.next().unwrap());
             let params = generate_rust(inner.next().unwrap());
             
-            // Remaining nodes: ret_sig (optional) + block
             let mut ret_raw = String::new();
             let mut block_parts = Vec::new();
             for node in inner {
-                if node.as_str().starts_with("->") || node.as_rule() == Rule::ret_sig {
+                if node.as_rule() == Rule::ret_sig {
                     let r = generate_rust(node);
                     if !r.is_empty() { ret_raw = r; }
                 } else {
@@ -73,16 +83,19 @@ fn generate_rust(pair: Pair<Rule>) -> String {
             let block_str = block_parts.concat();
             format!("fn {}{} -> {} {}\n", fn_name, params, ret_ty, block_str)
         }
-        Rule::param_list => {
+        Rule::inner_params => {
             let mut buf = String::new();
-            let mut inner = pair.into_inner();
-            while let Some(p) = inner.next() {
+            let mut first = true;
+            for p in pair.into_inner() {
+                if !first { buf.push_str(", "); }
+                first = false;
                 buf.push_str(&generate_rust(p));
-                if inner.peek().is_some() {
-                    buf.push_str(", ");
-                }
             }
-            format!("({})", buf)
+            buf
+        }
+        Rule::param_list => {
+            let inner = generate_rust(pair.into_inner().next().unwrap());
+            format!("({})", inner)
         }
         Rule::param => {
             let id_str = pair.as_str(); // debug: full param string
@@ -95,8 +108,7 @@ fn generate_rust(pair: Pair<Rule>) -> String {
                 return id_str.to_string();
             }
             let id = generate_rust(first.unwrap());
-            // Skip colon literal
-            let _colon = inner.next();
+            // colon literal is NOT a child node, so next child is ty directly
             if let Some(ty_pair) = inner.next() {
                 let ty = generate_rust(ty_pair);
                 format!("{}: {}", id, ty)
@@ -127,25 +139,22 @@ fn generate_rust(pair: Pair<Rule>) -> String {
 
         // let / mut 变量定义
         Rule::let_stmt => {
-            let mut inner = pair.into_inner();
-            let mut is_mut = false;
-            let mut var_name = String::new();
-            let mut type_anno = String::new();
-            let mut expr_val = String::new();
-
-            while let Some(n) = inner.next() {
-                let s = n.as_str();
-                if s == "mut" && var_name.is_empty() {
-                    is_mut = true;
-                } else if var_name.is_empty() {
-                    var_name = generate_rust(n);
-                } else if s == ":" {
-                    type_anno = format!(": {}", generate_rust(inner.next().unwrap()));
-                } else if s == "=" {
-                    expr_val = generate_rust(inner.next().unwrap());
-                }
-            }
-
+            // pest drops keywords, punct from into_inner()
+            // Children: ident, (opt)ty_ident, expr
+            let nodes: Vec<_> = pair.clone().into_inner().collect();
+            let var_name = generate_rust(nodes[0].clone());
+            let expr_val = if nodes.len() >= 3 {
+                generate_rust(nodes[2].clone())
+            } else {
+                generate_rust(nodes[1].clone())
+            };
+            let type_anno = if nodes.len() >= 3 {
+                format!(": {}", generate_rust(nodes[1].clone()))
+            } else {
+                String::new()
+            };
+            // TODO: detect "mut" from source string
+            let is_mut = pair.as_str().starts_with("mut");
             let mut_kw = if is_mut { "mut " } else { "" };
             format!("let {}{}{} = {};\n", mut_kw, var_name, type_anno, expr_val)
         }
@@ -251,6 +260,8 @@ fn generate_rust(pair: Pair<Rule>) -> String {
             buf
         }
         Rule::ty_ident => pair.as_str().to_string(),
+        Rule::name => pair.as_str().to_string(),
+        Rule::ty => pair.as_str().to_string(),
         Rule::ident => pair.as_str().to_string(),
         Rule::number => pair.as_str().to_string(),
         Rule::string => pair.as_str().to_string(),
@@ -298,7 +309,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let src = fs::read_to_string("test.mini")?;
     #[allow(unused_mut)]
     let mut parsed = MiniParser::parse(Rule::file, &src)?;
-    let rust_code = generate_rust(parsed.next().unwrap());
+    let root = parsed.next().unwrap();
+    let rust_code = generate_rust(root);
 
     fs::write("output.rs", &rust_code)?;
     println!("=== Generated Rust Code (output.rs) ===");
