@@ -158,12 +158,22 @@ fn generate_rust(pair: Pair<Rule>) -> String {
 
         // print(xxx) → println!("{}", xxx)
         Rule::print_stmt => {
-            let mut inner = pair.into_inner();
-            let _print = inner.next();
-            let _lparen = inner.next();
-            let expr = generate_rust(inner.next().unwrap());
-            let _rparen = inner.next();
+            let mut parts = Vec::new();
+            for node in pair.into_inner() {
+                let s = node.as_str();
+                if s != "print" && s != "(" && s != ")" {
+                    parts.push(generate_rust(node));
+                }
+            }
+            let expr = parts.concat();
             format!("println!(\"{{}}\", {});\n", expr)
+        }
+        Rule::print_expr => {
+            let mut buf = String::new();
+            for inner in pair.into_inner() {
+                buf.push_str(&generate_rust(inner));
+            }
+            buf
         }
 
         // if / else
