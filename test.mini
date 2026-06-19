@@ -10,8 +10,3 @@ mut num = 100
 if num > 10 {
     print(num)
 }
-
-struct User {
-    id: u64
-    name: String
-}
